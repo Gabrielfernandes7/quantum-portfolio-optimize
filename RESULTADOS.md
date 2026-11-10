@@ -125,43 +125,55 @@ Os valores da tabela acima foram recalculados após a correção descrita na se�
 
 **Leitura:** a probabilidade de ótimo depende fortemente da semente. Os valores altos reportados pela referência (63% e 49%) aparecem em uma única execução. Na nossa reprodução, o VQE alcança essa faixa em algumas sementes, mas o QAOA não alcança 63% em nenhuma delas. Uma única execução com semente não é evidência suficiente.
 
-### 4.6 Estudo complementar: 30 sementes e otimizador SPSA
+### 4.6 Estudo complementar: 30 sementes, SPSA e orçamento maior
 
-Rodamos as mesmas configurações dos notebooks 03 e 04, com 30 sementes (0 a 29) por configuração, e com COBYLA e SPSA. O script é `scripts/estudo_sementes_otimizadores.py`, e os resultados estão em `resultados/`. Como controle, as sementes 0 a 2 do COBYLA no VQE reproduzem a tabela do notebook 04 exatamente. O orçamento foi COBYLA com 300 avaliações no QAOA e 1000 no VQE, e SPSA com 150 iterações no QAOA (300 avaliações) e 500 no VQE (1000 avaliações).
+Rodamos as configurações dos notebooks 03 e 04 com 30 sementes (0 a 29) e três otimizadores: COBYLA (orçamento do notebook), SPSA (1000 avaliações no VQE e 300 no QAOA) e SPSA-grande (4× esse orçamento: 4000 e 1200 avaliações). O script é `scripts/estudo_sementes_otimizadores.py`, e os resultados estão em `resultados/`.
 
-**QAOA (4 ativos, λ = 1, 16 vetores).** Sorteio uniforme: P(ótimo) = 6,25%, P(viável) = 37,5%.
+Dois pontos de reprodutibilidade:
+
+- **COBYLA no VQE** reproduz a tabela do notebook 04 nas sementes 0 a 2, e a rodada inteira se repete.
+- **QAOA** usava um ponto inicial sorteado pelo gerador `algorithm_globals`, que não estava fixado. Corrigimos isso e rodamos o QAOA duas vezes: os CSVs saíram idênticos.
+- **SPSA no VQE não é reproduzível nesta rodada.** O SPSA sorteia as perturbações pelo mesmo gerador, e não o fixamos para o VQE. Na rodada anterior, com o mesmo código, o SPSA com reps=1 acertou 0/30; nesta, 3/30. Os valores SPSA do VQE abaixo são de uma única rodada. O script já fixa o gerador, mas essas execuções precisam ser refeitas.
+
+**QAOA (4 ativos, λ = 1). Sorteio uniforme: P(ótimo) = 6,25%, P(viável) = 37,5%.**
 
 | p | Otimizador | P(ótimo) média (IC95%) | Mediana | Máximo | Sementes acima do sorteio | P(viável) média |
 |---|---|---|---|---|---|---|
-| 1 | COBYLA | 1,6% (1,3–1,9) | 1,6% | 2,8% | 0/30 | 7,5% |
-| 1 | SPSA | 1,4% (1,1–1,7) | 1,7% | 2,6% | 0/30 | 6,4% |
-| 2 | COBYLA | 2,1% (1,4–2,8) | 1,6% | 8,1% | 1/30 | 9,0% |
-| 2 | SPSA | 2,1% (1,4–2,7) | 1,8% | 9,4% | 1/30 | 9,4% |
-| 3 | COBYLA | 2,8% (2,1–3,6) | 2,6% | 7,6% | 3/30 | 10,4% |
-| 3 | SPSA | 2,8% (1,9–3,6) | 2,1% | 9,1% | 3/30 | 10,8% |
+| 1 | COBYLA | 1,41% (1,12–1,70) | 1,46% | 2,81% | 0/30 | 7,7% |
+| 1 | SPSA | 1,34% (1,00–1,68) | 1,41% | 2,63% | 0/30 | 6,9% |
+| 1 | SPSA-grande | 1,35% (1,01–1,69) | 1,45% | 2,64% | 0/30 | 6,9% |
+| 2 | COBYLA | 2,35% (1,70–2,99) | 2,25% | 7,24% | 1/30 | 9,6% |
+| 2 | SPSA | 2,31% (1,67–2,95) | 2,03% | 7,12% | 2/30 | 9,4% |
+| 2 | SPSA-grande | 3,01% (2,32–3,71) | 2,38% | 7,48% | 3/30 | 10,9% |
+| 3 | COBYLA | 2,85% (2,15–3,56) | 2,19% | 6,91% | 2/30 | 12,0% |
+| 3 | SPSA | 3,86% (2,61–5,11) | 2,87% | 14,56% | 5/30 | 13,3% |
+| 3 | SPSA-grande | 4,59% (3,09–6,10) | 3,20% | 14,12% | 8/30 | 15,2% |
 
-**Leitura:** com 30 sementes, a média de P(ótimo) do QAOA continua abaixo do sorteio para p ≤ 3, e a conclusão da seção 4.3 se mantém. Algumas sementes com p = 2 ou 3 passam do sorteio, mas são exceções (no total, 8 de 180 execuções). A probabilidade de viabilidade nunca supera o sorteio de 37,5%. O SPSA não melhora o resultado, e ele atingiu o limite de 300 avaliações em todas as execuções, o que indica que não convergiu com esse orçamento.
+**Leitura:** a média de P(ótimo) do QAOA continua abaixo do sorteio para todos os otimizadores e para p ≤ 3. Com 4× mais avaliações, o SPSA sobe em p = 2 e p = 3, e em p = 3 chega a 4,6% contra 2,9% do COBYLA. Mesmo assim, fica abaixo de 6,25%. Algumas sementes passam do sorteio (8 de 30 em p = 3 com SPSA-grande), mas a maioria não. A probabilidade de viabilidade também fica abaixo do sorteio de 37,5% em todas as configurações.
 
-**VQE (12 qubits, λ = 10, 4096 vetores).** Sorteio uniforme: P(ótimo) = 0,024%, P(viável) = 3,9%.
+**VQE (12 qubits, λ = 10). Sorteio uniforme: P(ótimo) = 0,024%, P(viável) = 3,9%.**
 
-| Reps | Otimizador | Acerto do solver | P(ótimo) média (IC95%) | Mediana | Sementes acima do sorteio | P(viável) média | Avaliações média |
-|---|---|---|---|---|---|---|---|
-| 1 | COBYLA | 7/30 | 2,42% (−2,5 a 7,4) | 0,00% | 2/30 | 15,0% | 301 |
-| 1 | SPSA | 0/30 | 0,00% | 0,00% | 0/30 | 2,2% | 1000 |
-| 2 | COBYLA | 3/30 | 0,062% (−0,03 a 0,15) | 0,00% | 2/30 | 16,3% | 410 |
-| 2 | SPSA | 5/30 | 0,016% (−0,01 a 0,05) | 0,00% | 2/30 | 3,7% | 1000 |
-| 3 | COBYLA | 2/30 | 0,001% (0,00 a 0,003) | 0,00% | 0/30 | 3,1% | 496 |
-| 3 | SPSA | 3/30 | 0,005% (−0,004 a 0,013) | 0,00% | 1/30 | 3,1% | 1000 |
+| Reps | Otimizador | Acerto do solver | P(ótimo) média (IC95%) | Mediana | Máximo | Sementes acima do sorteio | P(viável) média | Avaliações média |
+|---|---|---|---|---|---|---|---|---|
+| 1 | COBYLA | 7/30 | 2,42% (−2,5 a 7,4) | 0,00% | 72,47% | 2/30 | 15,0% | 301 |
+| 1 | SPSA | 3/30 | 0,00% | 0,00% | 0,00% | 0/30 | 1,5% | 1000 |
+| 1 | SPSA-grande | 1/30 | 0,00% | 0,00% | 0,00% | 0/30 | 5,1% | 4000 |
+| 2 | COBYLA | 3/30 | 0,062% (−0,03 a 0,15) | 0,00% | 0,98% | 2/30 | 16,3% | 410 |
+| 2 | SPSA | 2/30 | 0,013% (−0,01 a 0,04) | 0,00% | 0,39% | 1/30 | 4,7% | 1000 |
+| 2 | SPSA-grande | 2/30 | 0,001% (−0,001 a 0,003) | 0,00% | 0,033% | 1/30 | 18,1% | 4000 |
+| 3 | COBYLA | 2/30 | 0,001% (−0,001 a 0,003) | 0,00% | 0,024% | 0/30 | 3,1% | 496 |
+| 3 | SPSA | 5/30 | 0,002% (−0,001 a 0,004) | 0,00% | 0,030% | 1/30 | 1,4% | 1000 |
+| 3 | SPSA-grande | 2/30 | 0,003% (−0,003 a 0,009) | 0,00% | 0,090% | 1/30 | 4,1% | 4000 |
 
 **Leitura:**
 
-- A distribuição de P(ótimo) é muito assimétrica: a mediana é zero em todas as configurações, e a média depende de poucas execuções. A execução mais alta (reps = 1, COBYLA, semente 24) coloca 72,5% da probabilidade no ótimo viável (unidades [7, 0, 1, 0], energia −0,265214). Reexecutamos essa semente para confirmar: a segunda amostra mais provável tem 0,3%. Esse resultado é real, mas é um caso isolado. Entre as 180 execuções, apenas uma passa de 1%, e 8 passam do sorteio.
-- A afirmação da seção 4.4, de que a probabilidade do ótimo fica abaixo do sorteio, vale para a mediana e para a maioria das sementes, mas não para a média. O correto é dizer que o VQE concentra probabilidade no ótimo raramente, e em alguns casos fortemente.
-- O SPSA com 500 iterações atingiu o limite de 1000 avaliações em todas as execuções, então não convergiu. Além disso, ele acertou o solver em 0 de 30 casos com reps = 1, contra 7 de 30 do COBYLA. Por isso, a comparação atual não é justa com o SPSA: testar o SPSA com um orçamento maior seria o próximo passo.
-- COBYLA convergiu antes do limite em todas as configurações (média de 301 a 496 avaliações, máximo 688).
-- A viabilidade média do VQE com reps = 1 e 2 (15% e 16%) é maior que o sorteio (3,9%), o que confirma o aprendizado da restrição de soma. Com reps = 3, essa vantagem some (3,1%).
+- A mediana é zero em todas as configurações. A média do VQE depende de poucas execuções. A execução mais alta (reps = 1, COBYLA, semente 24) coloca 72,5% da probabilidade no ótimo viável (unidades [7, 0, 1, 0], energia −0,265214). Reexecutamos essa semente para confirmar. Entre as 270 execuções do VQE, só essa passa de 1%, e 9 passam do sorteio.
+- Nenhum SPSA convergiu. Com 4000 avaliações, todas as execuções ainda atingiram o limite. Portanto, não é possível dizer se o problema é o orçamento ou o próprio método.
+- Com o orçamento maior, o SPSA não supera o COBYLA no VQE: P(ótimo) e acertos ficam no mesmo patamar ou abaixo.
+- A viabilidade média do VQE com reps = 1 e 2 com COBYLA (15% e 16%) é maior que o sorteio (3,9%). Com reps = 3, essa vantagem desaparece (3,1%).
 
 **Limitação:** o DualQ (notebook 05) não entrou neste estudo. As probabilidades altas da referência continuam sem reprodução estável.
+
 
 ## 5. Discussão
 
@@ -221,7 +233,7 @@ Esta seção avalia cada método pelo critério do projeto: a solução é melho
 *Por que, hipóteses:*
 - **Profundidade rasa.** Com p ≤ 3, o circuito tem poucos parâmetros (2p) para explorar uma paisagem com 16 estados. Mais camadas ajudaram pouco (de 1,2% para 2,5%).
 - **Paisagem dominada pela penalidade.** Com λ = 1, a matriz Q é dominada pelo termo de penalidade, e a parte de risco quase não influencia a distribuição. Isso reduz a informação útil no sinal.
-- **Otimizador.** COBYLA com 300 iterações para 2p parâmetros pode parar em um mínimo local. Testamos SPSA com 300 avaliações (seção 4.6): não melhorou o resultado, e não convergiu com esse orçamento.
+- **Otimizador.** COBYLA com 300 iterações para 2p parâmetros pode parar em um mínimo local. Testamos SPSA com 300 e 1200 avaliações (seção 4.6). Com o orçamento maior, a média sobe em p = 3, mas continua abaixo do sorteio, e nenhum SPSA convergiu.
 - **Sorteio é um baseline forte aqui.** Com 16 estados, a probabilidade de um sorteio acertar o ótimo é 1/16. Um algoritmo quântico precisa superar isso de forma clara, e não superou.
 
 **VQE como otimizador da alocação.** Com 12 qubits e 24 a 48 parâmetros, o VQE acertou a melhor alocação viável em 2 de 9 execuções, mas com probabilidade de ~0,003% no circuito, abaixo do sorteio (0,024%). Ou seja, o acerto veio de uma amostra de menor energia, e não de um circuito concentrado no ótimo.
@@ -259,7 +271,7 @@ Esta seção avalia cada método pelo critério do projeto: a solução é melho
 
 ### 9.4 O que eu faria diferente
 
-1. **Testar outros otimizadores.** Feito com SPSA na seção 4.6, com orçamento de 1000 avaliações (o limite foi atingido em todas as execuções). Falta testar o SPSA com orçamento maior, ou um otimizador com gradiente.
+1. **Testar outros otimizadores.** Feito com SPSA na seção 4.6, com 1000 e 4000 avaliações no VQE. Nenhum convergiu, e as execuções SPSA do VQE ainda precisam ser refeitas com semente fixa. Falta testar um otimizador com gradiente.
 2. **Rodar muitas sementes** (no mínimo 30) e reportar média, mediana e intervalo, em vez de execuções isoladas. Feito na seção 4.6.
 3. **Aumentar p e o número de repetições** de forma sistemática, para mapear a curva de desempenho.
 4. **Calibrar λ** por varredura antes de comparar algoritmos, porque a escala da penalidade muda o problema.

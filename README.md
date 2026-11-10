@@ -8,7 +8,7 @@ Projeto de estudo sobre otimização de carteiras de investimento. Compara o mé
 
 - A formulação QUBO e a conversão para Ising são exatas e foram verificadas por força bruta.
 - QAOA (p ≤ 3) e VQE, em simulação ideal, não superaram um sorteio uniforme como amostradores do ótimo, em média. Com 30 sementes, a mediana de probabilidade do ótimo é zero no VQE em todas as configurações. Poucas execuções concentram a probabilidade no ótimo (a maior chegou a 72,5%).
-- O SPSA, com o orçamento testado (1000 avaliações no VQE, 300 no QAOA), não melhora o COBYLA e não converge.
+- No VQE, o SPSA não supera o COBYLA, mesmo com 4× mais avaliações, e nenhum SPSA convergiu. No QAOA com p = 3, o SPSA com orçamento maior tem média mais alta que o COBYLA (4,6% contra 2,9%), mas continua abaixo do sorteio de 6,25%.
 - Nenhuma otimização (clássica ou quântica) superou pesos iguais fora da amostra (2025). Com dois anos de treino, a estimativa de retorno esperado é o gargalo.
 - Os valores altos de probabilidade reportados pela referência DualQ (63% e 49%) não se reproduziram de forma estável entre sementes.
 
@@ -83,6 +83,14 @@ venv-quantum/bin/python scripts/estudo_sementes_otimizadores.py
 
 O script usa as mesmas configurações dos notebooks 03 e 04, roda em paralelo (8 processos) e grava os resultados em `resultados/`. Ele sobrescreve os CSVs existentes. Os notebooks não são alterados por ele.
 
+Tempo de execução: a rodada completa, com COBYLA, SPSA e SPSA-grande, levou cerca de 1 hora. O QAOA sozinho levou cerca de 10 minutos (9 min 45 s medidos).
+
+Para rodar só uma das partes, passe `qaoa` ou `vqe` como argumento. A outra parte é lida do CSV já existente:
+
+```bash
+venv-quantum/bin/python scripts/estudo_sementes_otimizadores.py qaoa
+```
+
 ## Dados e premissas
 
 - **Ativos:** ITUB4, VALE3, KLBN4 e BBAS3 (B3, em reais). O notebook 05 usa BRKM5, ITUB4, VALE3 e KLBN4, como a referência.
@@ -97,7 +105,7 @@ O script usa as mesmas configurações dos notebooks 03 e 04, roda em paralelo (
 - Um único período de teste fora da amostra (2025).
 - Simulação ideal na maior parte dos testes. O modelo de ruído é ilustrativo, não calibrado em hardware.
 - Sementes: 3 a 8 por configuração nos notebooks, e 30 no estudo complementar (seção 4.6 de `RESULTADOS.md`). A probabilidade de ótimo varia muito entre sementes.
-- SPSA testado com um único orçamento de avaliações. Com ele, não convergiu.
+- SPSA testado com dois orçamentos (1000 e 4000 avaliações no VQE). Nenhum convergiu. As execuções SPSA do VQE desta rodada não são reproduzíveis (o gerador do SPSA não foi fixado) e precisam ser refeitas.
 - Com quatro ativos, a força bruta resolve o problema em milissegundos. A comparação quântica é metodológica, não uma demonstração de vantagem.
 - Discrepâncias registradas em `RESULTADOS.md`, seção 7. A de retorno de pesos iguais em 2025 (21,5% no notebook 01 e 22,46% no notebook 04) foi resolvida: a célula do notebook 04 perdia o primeiro dia de 2025. Os dois notebooks agora dão 21,47%.
 
@@ -112,7 +120,7 @@ O script usa as mesmas configurações dos notebooks 03 e 04, roda em paralelo (
 - [x] Investigar a discrepância de retorno de pesos iguais entre os notebooks 01 e 04 (corrigida no notebook 04)
 - [x] Confirmar a série SGS 12 do Banco Central para a taxa livre de risco (seção 2 de `RESULTADOS.md`)
 - [x] Testar mais sementes (30) no VQE e no QAOA, e o SPSA como otimizador alternativo (seção 4.6 de `RESULTADOS.md`)
-- [ ] Testar o SPSA com orçamento maior de avaliações, para ver se ele converge
+- [x] Testar o SPSA com orçamento maior de avaliações, para ver se ele converge. Nenhum convergiu. Ressalva: as execuções SPSA do VQE não são reproduzíveis, pois o gerador do SPSA não foi fixado nessa rodada; elas precisariam ser refeitas com semente fixa.
 
 ## Referências
 

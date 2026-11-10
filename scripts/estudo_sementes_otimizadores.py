@@ -81,7 +81,11 @@ def executa_qaoa(args):
     qp.minimize(constant=d, linear=c, quadratic=Q)
     x_ot = otimo_qaoa(Q, c, d, len(ativos), 2)
 
+    # O ponto inicial do QAOA usa o gerador algorithm_globals, separado do np.random:
+    # sem fixá-lo, cada execução parte de um ponto diferente e os resultados não se repetem.
+    from qiskit_algorithms.utils import algorithm_globals
     np.random.seed(semente)
+    algorithm_globals.random_seed = semente
     opt = otimizador(nome_opt, 'QAOA')
     sampler = StatevectorSampler(default_shots=4096, seed=semente)
     qaoa = QAOA(sampler=sampler, optimizer=opt, reps=p)
@@ -190,21 +194,28 @@ def resumir(df, base_opt, base_viav):
     return pd.DataFrame(linhas)
 
 
-def main():
+def main(etapas=('qaoa', 'vqe')):
+    """etapas: 'qaoa', 'vqe' ou ambas. A etapa não executada é lida do CSV já existente em resultados/."""
     os.makedirs(SAIDA, exist_ok=True)
     ativos, mu, Sigma = carregar()
-
-    tarefas_q = [(p, None, s, o) for p in [1, 2, 3] for s in SEMENTES for o in OTIMIZADORES]
-    tarefas_v = [(r, s, o) for r in [1, 2, 3] for s in SEMENTES for o in OTIMIZADORES]
+    caminho_q = os.path.join(SAIDA, 'qaoa_execucoes.csv')
+    caminho_v = os.path.join(SAIDA, 'vqe_execucoes.csv')
 
     with ProcessPoolExecutor(max_workers=WORKERS) as ex:
-        qaoa = pd.DataFrame(list(ex.map(executa_qaoa, [(p, None, s, o) for p, _, s, o in tarefas_q], chunksize=4)))
-        print('QAOA concluído', len(qaoa), flush=True)
-        vqe = pd.DataFrame(list(ex.map(executa_vqe, tarefas_v, chunksize=2)))
-        print('VQE concluído', len(vqe), flush=True)
-
-    qaoa.to_csv(os.path.join(SAIDA, 'qaoa_execucoes.csv'), index=False)
-    vqe.to_csv(os.path.join(SAIDA, 'vqe_execucoes.csv'), index=False)
+        if 'qaoa' in etapas:
+            tarefas_q = [(p, None, s, o) for p in [1, 2, 3] for s in SEMENTES for o in OTIMIZADORES]
+            qaoa = pd.DataFrame(list(ex.map(executa_qaoa, tarefas_q, chunksize=4)))
+            qaoa.to_csv(caminho_q, index=False)
+            print('QAOA concluído', len(qaoa), flush=True)
+        else:
+            qaoa = pd.read_csv(caminho_q)
+        if 'vqe' in etapas:
+            tarefas_v = [(r, s, o) for r in [1, 2, 3] for s in SEMENTES for o in OTIMIZADORES]
+            vqe = pd.DataFrame(list(ex.map(executa_vqe, tarefas_v, chunksize=2)))
+            vqe.to_csv(caminho_v, index=False)
+            print('VQE concluído', len(vqe), flush=True)
+        else:
+            vqe = pd.read_csv(caminho_v)
 
     # Sorteio uniforme: QAOA (16 vetores, 1 ótimo, 6 viáveis em 16)
     base_q_opt, base_q_viav = 1 / 16, 6 / 16
@@ -220,4 +231,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    # Sem argumento: roda QAOA e VQE. Com 'qaoa' ou 'vqe': roda só essa etapa e reaproveita a outra do disco.
+    main(tuple(sys.argv[1:]) or ('qaoa', 'vqe'))
