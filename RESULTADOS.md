@@ -17,7 +17,7 @@ Verificar se a formulação quântica da carteira (QUBO, QAOA e VQE), usada na r
 - **Treino:** 2023-01-01 a 2024-12-31 para estimar μ e Σ.
 - **Teste:** 2025-01-01 a 2025-12-30, usado apenas para avaliação fora da amostra.
 - **Anualização:** 252 dias úteis, aplicada a μ e Σ.
-- **Taxa livre de risco:** rf = 0,13, aproximação do CDI médio do período, ainda não conferida na série SGS 12 do Banco Central.
+- **Taxa livre de risco:** rf = 0,13, usada em todos os notebooks. Conferida na série SGS 12 do Banco Central (CDI, em % ao dia, composta em 252 dias úteis): CDI composto de 12,00% a.a. em 2023–2024, 14,32% a.a. em 2025 (13,39% pela convenção ×252 usada nos retornos) e 12,77% a.a. em 2023–2025. O valor 0,13 fica dentro da faixa do período, mas está 1,3 p.p. abaixo do CDI realizado em 2025. Não refizemos os Sharpes com a taxa de 2025; como todas as carteiras são comparadas com o mesmo rf, a ordem entre elas não depende desse valor, mas os valores absolutos de Sharpe sobem levemente com uma taxa maior.
 
 ## 3. Métodos
 
@@ -90,10 +90,12 @@ Reproduzimos o caso da referência (ativos BRKM5, ITUB4, VALE3 e KLBN4, de 2016 
 
 | Estratégia | Pesos (BBAS3, ITUB4, KLBN4, VALE3) | Retorno 2025 | Risco 2025 | Sharpe 2025 |
 |---|---|---|---|---|
-| Pesos iguais | 25%, 25%, 25%, 25% | 22,46% | 15,17% | 0,624 |
-| Markowitz contínuo | 100%, 0%, 0%, 0% | −0,08% | 27,98% | −0,467 |
-| Força bruta discreta | 87,5%, 0%, 12,5%, 0% | −0,88% | 25,12% | −0,553 |
-| VQE (melhor amostra viável) | 87,5%, 0%, 12,5%, 0% | −0,88% | 25,12% | −0,553 |
+| Pesos iguais | 25%, 25%, 25%, 25% | 21,47% | 15,17% | 0,558 |
+| Markowitz contínuo | 100%, 0%, 0%, 0% | −1,12% | 27,95% | −0,505 |
+| Força bruta discreta | 87,5%, 0%, 12,5%, 0% | −1,98% | 25,09% | −0,597 |
+| VQE (melhor amostra viável) | 87,5%, 0%, 12,5%, 0% | −1,98% | 25,09% | −0,597 |
+
+Os valores da tabela acima foram recalculados após a correção descrita na seção 7 (item 1). Antes dela, o retorno dos pesos iguais era 22,46%, porque o 1º dia de 2025 ficava de fora do cálculo.
 
 - Discretização: custo de 0,0073 na função objetivo em relação ao contínuo.
 - Viabilidade do VQE: até 53% das amostras de uma execução, contra 3,9% do sorteio.
@@ -123,6 +125,44 @@ Reproduzimos o caso da referência (ativos BRKM5, ITUB4, VALE3 e KLBN4, de 2016 
 
 **Leitura:** a probabilidade de ótimo depende fortemente da semente. Os valores altos reportados pela referência (63% e 49%) aparecem em uma única execução. Na nossa reprodução, o VQE alcança essa faixa em algumas sementes, mas o QAOA não alcança 63% em nenhuma delas. Uma única execução com semente não é evidência suficiente.
 
+### 4.6 Estudo complementar: 30 sementes e otimizador SPSA
+
+Rodamos as mesmas configurações dos notebooks 03 e 04, com 30 sementes (0 a 29) por configuração, e com COBYLA e SPSA. O script é `scripts/estudo_sementes_otimizadores.py`, e os resultados estão em `resultados/`. Como controle, as sementes 0 a 2 do COBYLA no VQE reproduzem a tabela do notebook 04 exatamente. O orçamento foi COBYLA com 300 avaliações no QAOA e 1000 no VQE, e SPSA com 150 iterações no QAOA (300 avaliações) e 500 no VQE (1000 avaliações).
+
+**QAOA (4 ativos, λ = 1, 16 vetores).** Sorteio uniforme: P(ótimo) = 6,25%, P(viável) = 37,5%.
+
+| p | Otimizador | P(ótimo) média (IC95%) | Mediana | Máximo | Sementes acima do sorteio | P(viável) média |
+|---|---|---|---|---|---|---|
+| 1 | COBYLA | 1,6% (1,3–1,9) | 1,6% | 2,8% | 0/30 | 7,5% |
+| 1 | SPSA | 1,4% (1,1–1,7) | 1,7% | 2,6% | 0/30 | 6,4% |
+| 2 | COBYLA | 2,1% (1,4–2,8) | 1,6% | 8,1% | 1/30 | 9,0% |
+| 2 | SPSA | 2,1% (1,4–2,7) | 1,8% | 9,4% | 1/30 | 9,4% |
+| 3 | COBYLA | 2,8% (2,1–3,6) | 2,6% | 7,6% | 3/30 | 10,4% |
+| 3 | SPSA | 2,8% (1,9–3,6) | 2,1% | 9,1% | 3/30 | 10,8% |
+
+**Leitura:** com 30 sementes, a média de P(ótimo) do QAOA continua abaixo do sorteio para p ≤ 3, e a conclusão da seção 4.3 se mantém. Algumas sementes com p = 2 ou 3 passam do sorteio, mas são exceções (no total, 8 de 180 execuções). A probabilidade de viabilidade nunca supera o sorteio de 37,5%. O SPSA não melhora o resultado, e ele atingiu o limite de 300 avaliações em todas as execuções, o que indica que não convergiu com esse orçamento.
+
+**VQE (12 qubits, λ = 10, 4096 vetores).** Sorteio uniforme: P(ótimo) = 0,024%, P(viável) = 3,9%.
+
+| Reps | Otimizador | Acerto do solver | P(ótimo) média (IC95%) | Mediana | Sementes acima do sorteio | P(viável) média | Avaliações média |
+|---|---|---|---|---|---|---|---|
+| 1 | COBYLA | 7/30 | 2,42% (−2,5 a 7,4) | 0,00% | 2/30 | 15,0% | 301 |
+| 1 | SPSA | 0/30 | 0,00% | 0,00% | 0/30 | 2,2% | 1000 |
+| 2 | COBYLA | 3/30 | 0,062% (−0,03 a 0,15) | 0,00% | 2/30 | 16,3% | 410 |
+| 2 | SPSA | 5/30 | 0,016% (−0,01 a 0,05) | 0,00% | 2/30 | 3,7% | 1000 |
+| 3 | COBYLA | 2/30 | 0,001% (0,00 a 0,003) | 0,00% | 0/30 | 3,1% | 496 |
+| 3 | SPSA | 3/30 | 0,005% (−0,004 a 0,013) | 0,00% | 1/30 | 3,1% | 1000 |
+
+**Leitura:**
+
+- A distribuição de P(ótimo) é muito assimétrica: a mediana é zero em todas as configurações, e a média depende de poucas execuções. A execução mais alta (reps = 1, COBYLA, semente 24) coloca 72,5% da probabilidade no ótimo viável (unidades [7, 0, 1, 0], energia −0,265214). Reexecutamos essa semente para confirmar: a segunda amostra mais provável tem 0,3%. Esse resultado é real, mas é um caso isolado. Entre as 180 execuções, apenas uma passa de 1%, e 8 passam do sorteio.
+- A afirmação da seção 4.4, de que a probabilidade do ótimo fica abaixo do sorteio, vale para a mediana e para a maioria das sementes, mas não para a média. O correto é dizer que o VQE concentra probabilidade no ótimo raramente, e em alguns casos fortemente.
+- O SPSA com 500 iterações atingiu o limite de 1000 avaliações em todas as execuções, então não convergiu. Além disso, ele acertou o solver em 0 de 30 casos com reps = 1, contra 7 de 30 do COBYLA. Por isso, a comparação atual não é justa com o SPSA: testar o SPSA com um orçamento maior seria o próximo passo.
+- COBYLA convergiu antes do limite em todas as configurações (média de 301 a 496 avaliações, máximo 688).
+- A viabilidade média do VQE com reps = 1 e 2 (15% e 16%) é maior que o sorteio (3,9%), o que confirma o aprendizado da restrição de soma. Com reps = 3, essa vantagem some (3,1%).
+
+**Limitação:** o DualQ (notebook 05) não entrou neste estudo. As probabilidades altas da referência continuam sem reprodução estável.
+
 ## 5. Discussão
 
 1. **Formulação:** a conversão para QUBO e para Ising é exata. Os erros de conversão são da ordem de 10⁻¹⁵ e foram verificados por força bruta.
@@ -136,20 +176,20 @@ Reproduzimos o caso da referência (ativos BRKM5, ITUB4, VALE3 e KLBN4, de 2016 
 - **Número de ativos e de períodos:** quatro ativos e três anos de dados são uma amostra pequena. Os resultados valem para este universo.
 - **Um único ano de teste:** 2025 é um único período fora da amostra.
 - **Simulação ideal:** a maior parte dos resultados é de simulação sem ruído. O modelo de ruído é ilustrativo.
-- **Sementes:** o número de sementes é pequeno (5 a 8 por configuração). A dispersão observada é grande.
+- **Sementes:** os notebooks usam 3 a 8 sementes por configuração. O estudo complementar (seção 4.6) usa 30, mas só para as configurações dos notebooks 03 e 04. A dispersão observada é grande.
 - **Ordem dos ativos:** a referência DualQ parece rotular ativos com uma ordem diferente da dos dados. Não conseguimos confirmar isso sem acesso aos dados originais dela.
 - **Versões de software:** a referência usa `qiskit.aqua` (Qiskit 0.32). Nossa implementação usa Qiskit 2.6.2. Diferenças podem vir do ponto inicial e do otimizador.
 
 ## 7. Discrepâncias registradas
 
-1. **Retorno de pesos iguais em 2025:** 21,5% no notebook 01 e 22,46% no notebook 04, com os mesmos ativos e período. A taxa livre de risco é 0,13 nos dois. A causa não foi identificada.
+1. **Retorno de pesos iguais em 2025 (resolvido):** 21,5% no notebook 01 e 22,46% no notebook 04. A causa era a célula de estatísticas de 2025 do notebook 04: ela fatiava os preços de 2025 antes de calcular `pct_change()`, e assim perdia o retorno de 02/01/2025, que usa o fechamento de 31/12/2024. O notebook 01 calcula sobre a série completa e está correto. Corrigimos o notebook 04 e o reexecutamos. Agora os dois dão 21,47% (o notebook 04 reproduz a saída do notebook 01 com as mesmas unidades). A correção afeta só a avaliação de 2025, não o treino do VQE, e as contagens de sementes do notebook 04 não mudaram.
 2. **Máximo Sharpe x mínimo de variância:** o notebook 04 usa a função de custo q·wᵀΣw − μᵀw, e o notebook 01 usa o máximo Sharpe. Por isso, os resultados fora da amostra não são diretamente comparáveis.
 3. **Ordem dos ativos na referência DualQ:** o vetor ótimo 1001 da referência corresponde a 1010 nos nossos dados, com o mesmo valor. Isso sugere rotulagem trocada, a confirmar.
 
 ## 8. Conclusões
 
 1. **A formulação é válida.** O QUBO e o Ising reproduzem a função de custo nas 16 bitstrings, e o solver exato encontra o ótimo.
-2. **Nos nossos testes, QAOA e VQE não superam o sorteio como amostradores do ótimo.** Os resultados altos da referência aparecem apenas em execuções isoladas e não são reproduzidos de forma estável.
+2. **Nos nossos testes, QAOA e VQE não superam o sorteio como amostradores do ótimo, em média.** Com 30 sementes (seção 4.6), a média do QAOA fica abaixo do sorteio para p ≤ 3, e a mediana do VQE é zero em todas as configurações. Há exceções isoladas: o VQE, com reps = 1, chegou a 72,5% em uma semente. Os resultados altos da referência continuam não reproduzidos de forma estável.
 3. **Nenhuma otimização superou pesos iguais fora da amostra.** Com dois anos de treino, a estimativa de μ é insuficiente, e a carteira otimizada concentra em um ativo.
 4. **A recomendação metodológica** para trabalhos futuros é: repetir cada configuração com muitas sementes, reportar média e dispersão, usar unidades consistentes, testar fora da amostra em mais de um período, e confirmar a série SGS 12 do Banco Central antes de usar rf.
 5. **Para investimento**, a diversificação foi a estratégia mais robusta nos dados disponíveis. Esta conclusão é específica do universo de quatro ativos e do período analisado.
@@ -181,7 +221,7 @@ Esta seção avalia cada método pelo critério do projeto: a solução é melho
 *Por que, hipóteses:*
 - **Profundidade rasa.** Com p ≤ 3, o circuito tem poucos parâmetros (2p) para explorar uma paisagem com 16 estados. Mais camadas ajudaram pouco (de 1,2% para 2,5%).
 - **Paisagem dominada pela penalidade.** Com λ = 1, a matriz Q é dominada pelo termo de penalidade, e a parte de risco quase não influencia a distribuição. Isso reduz a informação útil no sinal.
-- **Otimizador.** COBYLA com 300 iterações para 2p parâmetros pode parar em um mínimo local. Não testamos outros otimizadores.
+- **Otimizador.** COBYLA com 300 iterações para 2p parâmetros pode parar em um mínimo local. Testamos SPSA com 300 avaliações (seção 4.6): não melhorou o resultado, e não convergiu com esse orçamento.
 - **Sorteio é um baseline forte aqui.** Com 16 estados, a probabilidade de um sorteio acertar o ótimo é 1/16. Um algoritmo quântico precisa superar isso de forma clara, e não superou.
 
 **VQE como otimizador da alocação.** Com 12 qubits e 24 a 48 parâmetros, o VQE acertou a melhor alocação viável em 2 de 9 execuções, mas com probabilidade de ~0,003% no circuito, abaixo do sorteio (0,024%). Ou seja, o acerto veio de uma amostra de menor energia, e não de um circuito concentrado no ótimo.
@@ -219,12 +259,12 @@ Esta seção avalia cada método pelo critério do projeto: a solução é melho
 
 ### 9.4 O que eu faria diferente
 
-1. **Testar outros otimizadores** (SPSA, por exemplo, ou L-BFGS com gradiente por parameter shift) antes de concluir que o VQE não funciona.
-2. **Rodar muitas sementes** (no mínimo 30) e reportar média, mediana e intervalo, em vez de execuções isoladas.
+1. **Testar outros otimizadores.** Feito com SPSA na seção 4.6, com orçamento de 1000 avaliações (o limite foi atingido em todas as execuções). Falta testar o SPSA com orçamento maior, ou um otimizador com gradiente.
+2. **Rodar muitas sementes** (no mínimo 30) e reportar média, mediana e intervalo, em vez de execuções isoladas. Feito na seção 4.6.
 3. **Aumentar p e o número de repetições** de forma sistemática, para mapear a curva de desempenho.
 4. **Calibrar λ** por varredura antes de comparar algoritmos, porque a escala da penalidade muda o problema.
 5. **Usar mais de um período de teste** e estimativas de μ com encolhimento (Ledoit e Wolf, 2004) antes de julgar a otimização.
-6. **Conferir a série SGS 12** do Banco Central para a taxa livre de risco, em vez de usar a aproximação 0,13.
+6. **Conferir a série SGS 12** do Banco Central para a taxa livre de risco. Feito na seção 2: o rf de 0,13 fica dentro da faixa do período, mas abaixo do CDI realizado em 2025.
 
 ---
 
